@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite en local. Para Postgres (Neon / Vercel Postgres)
+// cambiá provider a "postgresql" y DATABASE_URL. El resto del esquema vale igual.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  OPERARIO
+}
+
+enum EstadoOrden {
+  PENDIENTE_MEDICION
+  EN_MEDICION
+  MEDIDA
+  PRESUPUESTADA
+  ENTREGADA
+}
+
+enum TipoPieza {
+  BLOCK
+  BIELAS
+  PISTONES
+  CIGUENAL
+  TAPA_CILINDRO
+  ARBOL_LEVAS
+  VOLANTE
+  VARIOS
+  OTRA
+}
+
+enum TipoArchivo {
+  FOTO
+  VIDEO
+}
+
+enum CategoriaTrabajo {
+  BLOCK
+  CIGUENAL
+  ARBOL_LEVAS
+  TAPA_CILINDRO
+  VARIOS
+}
+
+enum TipoMensajeOrden {
+  SISTEMA
+  NOTA
+}
+
+model User {
+  id        String  @id @default(cuid())
+  nombre    String
+  rol       Rol
+  pin       String
+  activo    Boolean @default(true)
+
+  ordenesCreadas Orden[]       @relation("OrdenCreadaPor")
+  mediciones     Medicion[]    @relation("MedicionCreadaPor")
+  archivos       Archivo[]     @relation("ArchivoSubidoPor")
+  mensajesOrden  MensajeOrden[] @relation("MensajeAutor")
+}
+
+model Cliente {
+  id       String  @id @default(cuid())
+  nombre   String
+  telefono String
+  ordenes  Orden[]
+}
+
+model Orden {
+  id            String      @id @default(cuid())
+  numero        Int         @unique
+  clienteId     String
+  cliente       Cliente     @relation(fields: [clienteId], references: [id])
+  motorMarca    String
+  motorModelo   String      @default("")
+  numeroBlock   String      @default("")
+  motorCompleto Boolean
+  estado        EstadoOrden @default(PENDIENTE_MEDICION)
+  creadaPor     String
+  creador       User        @relation("OrdenCreadaPor", fields: [creadaPor], references: [id])
+  creadaEn      DateTime    @default(now())
+  actualizadaEn DateTime    @updatedAt
+
+  piezas          Pieza[]
+  mediciones      Medicion[]
+  archivos        Archivo[]
+  trabajos        Trabajo[]
+  mensajes        MensajeOrden[]
+  fichaItems      PiezaFichaItem[]
+}
+
+model PiezaFichaItem {
+  id         String    @id @default(cuid())
+  ordenId    String
+  orden      Orden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  piezaTipo  TipoPieza
+  itemId     String
+  label      String
+  marcado         Boolean   @default(false)
+  marcadoPor      String?
+  marcadoEn       DateTime?
+  nota            String?
+  cantidadActiva  Boolean   @default(false)
+  cantidadNumero  String?
+  cantidadTexto   String?
+
+  @@unique([ordenId, piezaTipo, itemId])
+  @@index([ordenId, piezaTipo])
+}
+
+model MensajeOrden {
+  id       String            @id @default(cuid())
+  ordenId  String
+  orden    Orden             @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  autorId  String?
+  autor    User?             @relation("MensajeAutor", fields: [autorId], references: [id])
+  tipo     TipoMensajeOrden
+  cuerpo   String
+  meta     String?
+  creadoEn DateTime          @default(now())
+
+  @@index([ordenId, creadoEn])
+}
+
+model Pieza {
+  id            String    @id @default(cuid())
+  ordenId       String
+  orden         Orden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  tipo          TipoPieza
+  etiquetaLibre String?
+}
+
+model Medicion {
+  id         String    @id @default(cuid())
+  ordenId    String
+  orden      Orden     @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  piezaTipo       TipoPieza
+  observacion     String?
+  cantidadActiva  Boolean   @default(false)
+  cantidadNumero  String?
+  cantidadTexto   String?
+  creadaPor       String
+  creador    User      @relation("MedicionCreadaPor", fields: [creadaPor], references: [id])
+  creadaEn   DateTime  @default(now())
+}
+
+model Archivo {
+  id           String      @id @default(cuid())
+  ordenId      String
+  orden        Orden       @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  piezaTipo    TipoPieza
+  fichaItemId  String?
+  tipo         TipoArchivo
+  url          String
+  duracionSeg  Int?
+  subidoPor    String
+  subidor      User        @relation("ArchivoSubidoPor", fields: [subidoPor], references: [id])
+  subidoEn     DateTime    @default(now())
+
+  @@index([ordenId, piezaTipo, fichaItemId])
+}
+
+model Trabajo {
+  id          String           @id @default(cuid())
+  ordenId     String
+  orden       Orden            @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+  categoria   CategoriaTrabajo
+  descripcion String
+  precio      Decimal
+  tildado     Boolean          @default(false)
+  esLibre     Boolean          @default(false)
+}
+
+model CatalogoTrabajo {
+  id             String           @id @default(cuid())
+  categoria      CategoriaTrabajo
+  descripcion    String
+  precioSugerido Decimal
+  orden          Int
+}
