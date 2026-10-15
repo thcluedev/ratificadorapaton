@@ -1,0 +1,21 @@
+# Override para usar Postgres en lugar de SQLite.
+# Requisitos previos en el repo:
+#   1. En prisma/schema.prisma → provider = "postgresql"
+#   2. Regenerar migraciones para Postgres (migrate dev en entorno limpio) o prisma db push en staging
+#
+# Uso:
+#   cp .env.docker.example .env
+#   # DATABASE_URL=postgresql://paton:paton@postgres:5432/ratificadora?schema=public
+#   docker compose --profile postgres -f docker-compose.yml -f docker-compose.postgres.yml up --build
+
+services:
+  app:
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://paton:paton@postgres:5432/ratificadora?schema=public}
+    volumes:
+      - paton_uploads:/app/public/uploads
+      # Sin volumen SQLite cuando usás Postgres
+      - paton_sqlite:/data

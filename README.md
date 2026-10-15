@@ -19,6 +19,52 @@ npm run dev
 
 Abrí [http://localhost:3000](http://localhost:3000).
 
+## Docker (frontend + SQLite hoy, Postgres después)
+
+Hace falta Docker y Docker Compose v2.
+
+### Desarrollo (hot reload)
+
+```bash
+cp .env.docker.example .env
+docker compose up --build
+# o: npm run docker:dev
+```
+
+Primera vez con usuarios y catálogo de prueba:
+
+```bash
+RUN_SEED=true docker compose up --build
+# o: npm run docker:dev:seed
+```
+
+La app queda en [http://localhost:3000](http://localhost:3000). La base SQLite vive en el volumen `paton_sqlite` (`DATABASE_URL=file:/data/dev.db`). Las fotos van al volumen `paton_uploads`.
+
+Al arrancar el contenedor se ejecuta `prisma migrate deploy` automáticamente.
+
+### Producción (imagen optimizada)
+
+```bash
+cp .env.docker.example .env
+# Definí SESSION_SECRET largo en .env
+docker compose -f docker-compose.prod.yml up --build -d
+# o: npm run docker:prod
+```
+
+### Postgres (futuro)
+
+1. En `prisma/schema.prisma` cambiá `provider` de `sqlite` a `postgresql`.
+2. Ajustá migraciones para Postgres (base nueva o `prisma migrate dev` en entorno limpio).
+3. En `.env`:  
+   `DATABASE_URL=postgresql://paton:paton@postgres:5432/ratificadora?schema=public`
+4. Levantá app + Postgres:
+
+```bash
+docker compose --profile postgres -f docker-compose.yml -f docker-compose.postgres.yml up --build
+```
+
+El servicio `postgres` usa imagen `postgres:16-alpine` y volumen `paton_postgres`.
+
 ### Usuarios de prueba
 
 | Rol            | Nombre            | PIN  |

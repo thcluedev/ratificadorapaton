@@ -1,0 +1,54 @@
+# Ratificadora Patón — desarrollo con Docker (SQLite en volumen).
+#
+# Levantar:
+#   cp .env.docker.example .env
+#   docker compose up --build
+#
+# Primera vez con usuarios de prueba:
+#   RUN_SEED=true docker compose up --build
+#
+# Postgres (cuando cambies Prisma a postgresql):
+#   docker compose --profile postgres -f docker-compose.yml -f docker-compose.postgres.yml up --build
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-file:/data/dev.db}
+      SESSION_SECRET: ${SESSION_SECRET:-docker-dev-cambiar-en-produccion-minimo-32-chars}
+      RUN_SEED: ${RUN_SEED:-false}
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - paton_sqlite:/data
+      - paton_uploads:/app/public/uploads
+    restart: unless-stopped
+
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-paton}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-paton}
+      POSTGRES_DB: ${POSTGRES_DB:-ratificadora}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - paton_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-paton} -d ${POSTGRES_DB:-ratificadora}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  app_node_modules:
+  paton_sqlite:
+  paton_uploads:
+  paton_postgres:
